@@ -1,0 +1,6 @@
+{
+  "DBBackup.js": {
+    "JSfiles": ["DBBackup.js"],
+    "params": "-s -c skip"
+  }
+}

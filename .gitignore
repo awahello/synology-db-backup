@@ -1,0 +1,17 @@
+package/build/
+sources/
+AGENTS.md
+__pycache__/
+*.py[cod]
+*.spk
+*.spk.sig
+*.spk.sha256
+*.private.pem
+*-private.pem
+*_private.pem
+*.key
+*.p12
+*.pfx
+release/private/
+release/private-key.pem
+release/ed25519-private.pem

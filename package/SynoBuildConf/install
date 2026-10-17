@@ -1,0 +1,27 @@
+#!/bin/bash
+# Copyright (c) 2026 AWA <https://www.akkdiy.cn>. All rights reserved.
+set -e
+
+source /pkgscripts-ng/include/pkg_util.sh
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+INST_DIR="/tmp/_DBBackup"
+PKG_DIR="/tmp/_DBBackup_pkg"
+PKG_DEST="/image/packages"
+rm -rf "$INST_DIR" "$PKG_DIR"
+mkdir -p "$INST_DIR" "$PKG_DIR" "$PKG_DEST"
+
+make install DESTDIR="$INST_DIR"
+pkg_make_package "$INST_DIR" "$PKG_DIR"
+mkdir -p "$PKG_DIR/scripts" "$PKG_DIR/conf"
+cp -a scripts/* "$PKG_DIR/scripts/"
+cp -a conf/* "$PKG_DIR/conf/"
+cp -a LICENSE "$PKG_DIR/LICENSE"
+cp -a DISCLAIMER.md "$PKG_DIR/DISCLAIMER.txt"
+cp -a build/assets/PACKAGE_ICON.PNG "$PKG_DIR/PACKAGE_ICON.PNG"
+cp -a build/assets/PACKAGE_ICON_256.PNG "$PKG_DIR/PACKAGE_ICON_256.PNG"
+chmod 0755 "$PKG_DIR/scripts/"*
+bash ./INFO.sh > "$PKG_DIR/INFO"
+pkg_make_spk "$PKG_DIR" "$PKG_DEST" "$(pkg_get_spk_family_name "$PKG_DIR/INFO")"
+

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Copyright (c) 2026 AWA <https://www.akkdiy.cn>. All rights reserved.
+set -e
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ "${CleanOnly:-}" = "yes" ] || [ "${MakeClean:-}" = "yes" ]; then
+    make -C "$PROJECT_DIR" clean
+    [ "${CleanOnly:-}" = "yes" ] && exit 0
+fi
+
+make -C "$PROJECT_DIR" all
+
