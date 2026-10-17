@@ -6,7 +6,7 @@ Copyright © 2026 AWA · [www.akkdiy.cn](https://www.akkdiy.cn)。源码保留�
 
 ## 安装和使用
 
-当前构建版本为 `0.1.0-0025`，目标设备为 DS723+（R1000）和 DSM 7.4.1。安装前，在套件中心安装 Synology Python 3 和 MariaDB 10。然后在 DSM「套件中心 → 手动安装」中选择 `DBBackup-x86_64-0.1.0-0025.spk`。
+当前构建版本为 `0.1.0-0025`，目标设备为 DS723+（R1000）和 DSM 7.4.1。安装前，在套件中心安装 Synology Python 3 和 MariaDB 10。下载仓库中的 [`DBBackup-x86_64-0.1.0-0025.spk`](dist/DBBackup-x86_64-0.1.0-0025.spk)，然后在 DSM「套件中心 → 手动安装」中选择该文件。
 
 安装并启动后，以 DSM administrators 群组成员登录 DSM，打开「数据库自动备份」。首次设置 MariaDB 只读账号及密码并保存连接，页面会自动检测数据库和数据表；勾选要备份的数据库或表，选择备份目录，新增计划或立即备份。计划任务以套件系统账号 `DBBackup` 执行，因此还需要在共享文件夹权限中授予 `DBBackup` 对目标目录的写入权限。DSM 登录身份验证与数据库账号是两套独立认证。
 
@@ -63,5 +63,4 @@ pkgscripts-ng/PkgCreate.py -p r1000 -c DBBackup
 在 NAS 完成验证前，不应把本开发版暴露到公网或作为已验证安全的备份产品使用。至少要在目标 DSM 版本检查：CGI 是否由 DSM 正确执行、`conf/privilege` 是否将 CGI 启动器设置为 `DBBackup` 所有且仅可执行、`authenticate.cgi` 是否能读取原始请求会话、File Station 返回的 `real_path` 是否与用户可写权限一致、共享目录 ACL 是否阻止套件账号写入未授权目录，以及 MariaDB 客户端对所用账号授权的实际行为。
 
 源码会保留版权标记。源码公开后，技术上无法阻止别人修改他们自己的副本；请勿把“加密源码”当成防修改方案。正式发布到 GitHub 前，应由维护者用离线私钥签署 SPK，并在发布页附带签名和 SHA-256 校验值。本仓库目前未配置发布私钥或 SPK 验签流程。
-
 
