@@ -30,7 +30,7 @@ Copyright © 2026 AWA · [www.akkdiy.cn](https://www.akkdiy.cn)。源码保留�
 
 - 数据库连接使用 MariaDB 命令行客户端。可保存多个「数据源」：服务器地址留空表示 NAS 本机（自动探测 3307/3306 端口与 socket），填写 IP 或域名与端口表示通过 TCP 直连内网其他服务器上的 MySQL / MariaDB。数据库名与表名仍由 `SHOW DATABASES`、`SHOW TABLES` 自动发现，不要求手动填写。
 - 每个备份计划绑定一个数据源，任务记录里会显示该计划属于哪个数据源。删除仍被计划引用的数据源会被拒绝，避免计划指向已不存在的连接。从 0.1.0 升级时，旧的单连接配置会自动迁移成一条名为「本机 MariaDB」的数据源，旧计划随之绑定，无需重建。
-- 每个 DSM 登录用户单独保存数据库连接账号、备份任务和运行记录。数据库与表通过 `SHOW DATABASES`、`SHOW TABLES` 自动发现。
+- 每个 DSM 登录用户单独保存自己的数据源、备份任务和运行记录，互相不可见。
 - 目录选择器通过 DSM File Station Web API 浏览当前登录用户可写的共享目录和子目录。
 - 页面和每个 CGI API 请求都调用 DSM `authenticate.cgi` 校验会话；未登录时返回 401。创建、删除、立即运行等更改操作只接受同源 POST，任务操作校验任务所有者。
 - Python 配置和状态文件放在套件私有 `var/` 目录；数据库密码不进入命令行参数或日志。备份先写临时文件，成功后原子改名。
@@ -45,7 +45,7 @@ Copyright © 2026 AWA · [www.akkdiy.cn](https://www.akkdiy.cn)。源码保留�
 - 备份文件默认仅 `DBBackup` 可读写（0600）。若要让登录用户在 File Station 中读取备份，目标目录的 NAS ACL 需要通过继承明确授予该用户读取权；不要用宽泛的共享组权限代替个人授权。
 - 目录选择器在浏览器端使用 File Station 的登录会话；服务端仍会把目标限制为真实存在的 `/volumeX/共享目录/...` 目录。不同 DSM 版本和反向代理设置会影响 File Station API 和 CGI 环境，必须在目标 NAS 上验证。
 - 数据库连接密码以加密密文保存在仅套件账号可读的 SQLite 文件中（目录权限 0700、文件权限 0600）。这保护它免受未授权 DSM/HTTP 用户读取，但不能防御 NAS root、套件账号失陷或 NAS 本机恶意管理员。
-- 页面入口和 JSON API 用 setuid 小型 C 启动器切换到套件用户运行；敏感 CGI 不以 Web Station 的 `http` 账号直接操作套件数据。请用 Synology Package Toolkit 为目标 DSM/CPU 架构编译和打包。当前环境没有 Toolkit 或 NAS，不能在此产出可安装 SPK，也不能验证 NAS 侧 CGI/文件 ACL 行为。
+- 页面入口和 JSON API 用 setuid 小型 C 启动器切换到套件用户运行；敏感 CGI 不以 Web Station 的 `http` 账号直接操作套件数据。请用 Synology Package Toolkit 为目标 DSM/CPU 架构编译和打包；仓库 `dist/` 中的 SPK 是未签名构建，仅用于自测。
 - DSM 应用入口默认仅对 `administrators` 群组开放，后端 CGI 也会复核该群组成员身份；每个计划仍按 DSM 用户名隔离。它尚未提供可授权普通用户的自定义角色。
 
 ## 构建
