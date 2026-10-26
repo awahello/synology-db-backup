@@ -179,8 +179,43 @@ def dump_candidates():
     return cgi_app.client_candidates(True)
 
 
-def backup_database(profile, task, database, tables):
+def dump_attempt(command, target):
+    """Run one dump command into a private temp file next to the target."""
     global ACTIVE_PROCESS
+    fd, temporary = tempfile.mkstemp(prefix=".dbbackup-", suffix=".partial", dir=target)
+    # Backups contain database contents. Keep them private to the package
+    # account unless the NAS share's inherited ACL grants additional readers.
+    os.fchmod(fd, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as raw, tempfile.TemporaryFile(mode="w+b", dir=str(PKG_VAR)) as errors:
+            proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=errors, close_fds=True)
+            ACTIVE_PROCESS = proc
+            try:
+                while True:
+                    chunk = proc.stdout.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    raw.write(chunk)
+                proc.stdout.close()
+                code = proc.wait()
+                ACTIVE_PROCESS = None
+                raw.flush()
+                os.fsync(raw.fileno())
+            except BaseException:
+                proc.kill()
+                proc.wait()
+                ACTIVE_PROCESS = None
+                raise
+            errors.seek(0)
+            stderr = errors.read(4096).decode("utf-8", "replace").strip()
+        return code, stderr, temporary
+    except BaseException:
+        try: os.unlink(temporary)
+        except OSError: pass
+        raise
+
+
+def backup_database(profile, task, database, tables):
     target = cgi_app.safe_target(task["target"])
     # Recheck names against the live catalog immediately before invoking the client.
     available_dbs = set(cgi_app.list_databases(profile))
@@ -207,53 +242,41 @@ def backup_database(profile, task, database, tables):
         except OSError: pass
         raise RuntimeError("MariaDB dump 工具无法启动")
 
+    # connect_cmd[1:] holds only options that both the client and mariadb-dump
+    # accept; client-only options such as --connect-timeout must stay out.
     command = [dump_client] + connect_cmd[1:]
     command += ["--single-transaction", "--quick", "--hex-blob", "--triggers"]
+    attempts = []
     if not tables:
-        command += ["--routines", "--events", "--databases", database]
+        attempts.append(command + ["--routines", "--events", "--databases", database])
+        # A remote account limited to its own database cannot always export
+        # stored routines/events. Keep the data backup instead of failing.
+        attempts.append(command + ["--databases", database])
     else:
-        command.append(database)
-        command.extend(tables)
+        attempts.append(command + [database] + list(tables))
 
     filename = output_name(task, database)
-    fd, temporary = tempfile.mkstemp(prefix=".dbbackup-", suffix=".partial", dir=target)
-    # Backups contain database contents. Keep them private to the package
-    # account unless the NAS share's inherited ACL grants additional readers.
-    os.fchmod(fd, 0o600)
     final_path = os.path.join(target, filename)
+    downgrade_note = ""
     try:
-        with os.fdopen(fd, "wb") as raw, tempfile.TemporaryFile(mode="w+b", dir=str(PKG_VAR)) as errors:
-            proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=errors, close_fds=True)
-            ACTIVE_PROCESS = proc
-            try:
-                while True:
-                    chunk = proc.stdout.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    raw.write(chunk)
-                proc.stdout.close()
-                code = proc.wait()
-                ACTIVE_PROCESS = None
-                raw.flush()
-                os.fsync(raw.fileno())
-            except BaseException:
-                proc.kill()
-                proc.wait()
-                ACTIVE_PROCESS = None
-                raise
-            errors.seek(0)
-            stderr = errors.read(4096).decode("utf-8", "replace").strip()
-        if code != 0:
-            raise RuntimeError(stderr.replace(profile["db_password"], "[已隐藏]")[:700] or "MariaDB 备份失败")
+        for index, attempt in enumerate(attempts):
+            code, stderr, temporary = dump_attempt(attempt, target)
+            if code == 0:
+                break
+            try: os.unlink(temporary)
+            except OSError: pass
+            message = stderr.replace(profile["db_password"], "[已隐藏]")[:700] or "MariaDB 备份失败"
+            if index + 1 < len(attempts) and re.search(r"PROCESS|EVENT|ROUTINE|TRIGGER|Access denied", stderr, re.I):
+                downgrade_note = "账号无权导出存储过程/事件，已改为仅备份表结构与数据"
+                continue
+            raise RuntimeError(message)
         # Publish the complete plain SQL dump without exposing a partial file.
         os.link(temporary, final_path)
         os.unlink(temporary)
         warning = record_and_prune(target, task, database, final_path)
+        if downgrade_note:
+            warning = (warning + "；" if warning else "") + downgrade_note
         return final_path, warning
-    except Exception:
-        try: os.unlink(temporary)
-        except OSError: pass
-        raise
     finally:
         try: os.unlink(option_file)
         except OSError: pass
@@ -262,15 +285,17 @@ def backup_database(profile, task, database, tables):
 def run_task(task):
     db = connect_state()
     try:
-        profile = cgi_app.current_profile(db, task["owner"])
+        source = cgi_app.source_by_id(db, task.get("source_id") or "")
     finally:
         db.close()
-    if not profile:
-        raise RuntimeError("尚未设置此 DSM 用户的数据库连接")
+    if not source:
+        raise RuntimeError("此计划关联的数据源已被删除，请重新编辑计划并选择数据源")
+    if source["owner"] != task["owner"]:
+        raise RuntimeError("数据源不属于此计划的所有者")
     databases = json.loads(task["databases_json"])
     outputs = []
     for selection in databases:
-        path, warning = backup_database(profile, task, selection["name"], selection.get("tables", []))
+        path, warning = backup_database(source, task, selection["name"], selection.get("tables", []))
         outputs.append(os.path.basename(path) + ("（" + warning + "）" if warning else ""))
     return outputs
 
