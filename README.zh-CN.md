@@ -13,7 +13,7 @@ Copyright © 2026 AWA · [www.akkdiy.cn](https://www.akkdiy.cn)。源码保留�
 此构建包的 SHA-256：
 
 ```text
-59233635833d43ef9f621501cb5e2522956e60b381811e2bf66fe0712b7ae2dc  DBBackup-x86_64-0.2.0-0002.spk
+89e6e70dbcb434ec8756bcdebbb77457ce4604c5c0e53cdb9896bff7e1077a7f  DBBackup-x86_64-0.2.0-0002.spk
 ```
 
 当前没有配置离线发布签名私钥，因此该 SPK 是未签名的开发构建。安装前请核对 SHA-256；正式发布时应另附维护者签名及校验清单。

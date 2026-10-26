@@ -1,0 +1,10 @@
+# Keep every text file LF in the repository and in the working tree.
+# The DSM package ships shell scripts and Python modules; a stray CRLF in
+# scripts/start-stop-status breaks the shebang on the NAS.
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.cgi   -text
+*.spk   binary
+*.PNG   binary
+*.png   binary
